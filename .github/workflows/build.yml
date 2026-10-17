@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build & Test (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu Latest
+            image: ubuntu:latest
+            install_deps: |
+              apt-get update && apt-get install -y gcc curl git pkg-config libasound2-dev
+          - name: CentOS Stream 9
+            image: quay.io/centos/centos:stream9
+            install_deps: |
+              dnf -y install gcc curl git alsa-lib-devel
+
+    steps:
+      - name: Install dependencies
+        run: ${{ matrix.install_deps }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Build release binary
+        run: cargo build --release --verbose
